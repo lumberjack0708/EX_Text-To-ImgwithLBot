@@ -25,6 +25,10 @@ client = AzureOpenAI(
     azure_endpoint=os.getenv('azure_endpoint')
 )
 
+# ngrok url
+ngrok_url = os.getenv('ngrok_url')
+print(f"ngrok url: {ngrok_url}")
+
 @app.route("/callback", methods=['POST'])
 def callback():
     # 獲取 X-Line-Signature 標頭的值
@@ -73,28 +77,20 @@ def handle_message(event):
         # 印出原始圖片網址以方便除錯
         print(f"原始圖片網址: {image_url}")
 
-        # 回傳成功訊息
-        reply_message = f"已生成圖片，儲存在: {image_path}"
-        
-        # 回傳圖片給使用者
-        image_message = ImageSendMessage(
-            original_content_url=f"https://d66f-59-125-140-67.ngrok-free.app/images/{unique_filename}",
-            preview_image_url=f"https://d66f-59-125-140-67.ngrok-free.app/images/{unique_filename}"
-        )
-        line_bot_api.reply_message(
-            event.reply_token,
-            image_message
-        )
-
+        # 準備圖片訊息回覆
+        reply_messages = [
+            ImageSendMessage(
+                original_content_url=f"{ngrok_url}/images/{unique_filename}",
+                preview_image_url=f"{ngrok_url}/images/{unique_filename}"
+            ),
+            # TextSendMessage(text=f"已生成圖片，儲存在: {image_path}")
+        ]
     except Exception as e:
-        # 錯誤處理
-        reply_message = f"圖片生成失敗: {str(e)}"
+        # 錯誤處理：回覆錯誤訊息
+        reply_messages = [TextSendMessage(text=f"圖片生成失敗: {str(e)}")]
 
-    # 回覆使用者
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=reply_message)
-    )
+    # 單一呼叫 reply_message 回覆使用者
+    line_bot_api.reply_message(event.reply_token, reply_messages)
 
 @app.route('/images/<filename>')
 def send_image(filename):
